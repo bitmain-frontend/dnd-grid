@@ -73,6 +73,10 @@
                 type: Boolean,
                 default: false
             },
+            bubbleLeft: {
+                type: Boolean,
+                default: false
+            },
             autoAddLayoutForNewBox: {
                 type: Boolean,
                 required: false,
@@ -98,7 +102,7 @@
             layout (newLayout) {
                 if (this.fixLayoutOnLoad) {
                     if (utils.layoutHasCollisions(newLayout)) {
-                        this.updateLayout(utils.fixLayout(newLayout, this.bubbleUp))
+                        this.updateLayout(utils.fixLayout(newLayout, this.bubbleUp, this.bubbleLeft))
                     }
                 }
             }
@@ -161,6 +165,8 @@
             }
         },
         methods: {
+            layoutBubbleUp: utils.layoutBubbleUp,
+            layoutBubbleLeft: utils.layoutBubbleLeft,
             getBoxLayoutById (id) {
                 if (id === '::placeholder::') {
                     return this.placeholder
@@ -181,7 +187,6 @@
                     pixels.h += this.resizing.offset.y
                     return pixels
                 }
-
                 var boxLayout = this.getBoxLayoutById(id)
                 return utils.positionToPixels(boxLayout.position, this.cellSize, this.margin, this.outerMargin)
             },
@@ -286,15 +291,19 @@
                         if (boxLayout.id === this.dragging.boxLayout.id) {
                             return
                         }
-                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxLayout, this.bubbleUp))
+                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxLayout, this.bubbleUp, this.bubbleLeft))
                     })
 
                     if (this.bubbleUp) {
                         newLayout = utils.layoutBubbleUp(newLayout)
-                        this.placeholder = newLayout.find((boxLayout) => {
-                            return boxLayout.id === this.dragging.boxLayout.id
-                        })
                     }
+
+                    if (this.bubbleLeft) {
+                        newLayout = utils.layoutBubbleLeft(newLayout)
+                    }
+                    this.placeholder = newLayout.find((boxLayout) => {
+                        return boxLayout.id === this.dragging.boxLayout.id
+                    })
                     this.updateLayout(newLayout)
 
                     this.$emit('drag:update', newLayout)
@@ -331,11 +340,14 @@
                         if (boxPosition.id === this.dragging.boxLayout.id) {
                             return
                         }
-                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxPosition, this.bubbleUp))
+                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxPosition, this.bubbleUp, this.bubbleLeft))
                     })
 
                     if (this.bubbleUp) {
                         newLayout = utils.layoutBubbleUp(newLayout)
+                    }
+                    if (this.bubbleLeft) {
+                        newLayout = utils.layoutBubbleLeft(newLayout)
                     }
                     this.updateLayout(newLayout)
 
@@ -353,16 +365,16 @@
                 var initialLayout
                 var isResizing = false
 
-                let validateTargetSize = (targetW, targetH) => {
-                    if (this.resizing.boxLayout.position.x + targetW > this.maxColumnCount) {
-                        targetW = this.maxColumnCount - this.resizing.boxLayout.position.x
+                let validateTargetSize = (targetW, targetH, boxLayout = this.resizing.boxLayout) => {
+                    if (boxLayout.position.x + targetW > this.maxColumnCount) {
+                        targetW = this.maxColumnCount - boxLayout.position.x
                     } else {
                         if (targetW < 1) {
                             targetW = 1
                         }
                     }
-                    if (this.resizing.boxLayout.position.y + targetH > this.maxRowCount) {
-                        targetH = this.maxRowCount - this.resizing.boxLayout.position.y
+                    if (boxLayout.position.y + targetH > this.maxRowCount) {
+                        targetH = this.maxRowCount - boxLayout.position.y
                     } else {
                         if (targetH < 1) {
                             targetH = 1
@@ -428,15 +440,18 @@
                         if (boxLayout.id === this.resizing.boxLayout.id) {
                             return
                         }
-                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxLayout, this.bubbleUp))
+                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxLayout, this.bubbleUp, this.bubbleLeft))
                     })
 
                     if (this.bubbleUp) {
                         newLayout = utils.layoutBubbleUp(newLayout)
-                        this.placeholder = newLayout.find((boxLayout) => {
-                            return boxLayout.id === this.resizing.boxLayout.id
-                        })
                     }
+                    if (this.bubbleLeft) {
+                        newLayout = utils.layoutBubbleLeft(newLayout)
+                    }
+                    this.placeholder = newLayout.find((boxLayout) => {
+                        return boxLayout.id === this.resizing.boxLayout.id
+                    })
                     this.updateLayout(newLayout)
 
                     this.$emit('resize:update', newLayout)
@@ -473,11 +488,14 @@
                         if (boxPosition.id === this.resizing.boxLayout.id) {
                             return
                         }
-                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxPosition, this.bubbleUp))
+                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxPosition, this.bubbleUp, this.bubbleLeft))
                     })
 
                     if (this.bubbleUp) {
                         newLayout = utils.layoutBubbleUp(newLayout)
+                    }
+                    if (this.bubbleLeft) {
+                        newLayout = utils.layoutBubbleLeft(newLayout)
                     }
                     this.updateLayout(newLayout)
 
@@ -488,6 +506,48 @@
                     this.placeholder.hidden = true
 
                     this.$emit('resize:end', newLayout)
+                })
+
+                // 直接改变尺寸
+                box.$on('updateSize', evt => {
+                    let boxLayout = this.getBoxLayoutById(evt.id)
+                    if (utils.isFree(this.pinnedLayout, {
+                        ...boxLayout.position,
+                        ...evt.position
+                    })) {
+                        let { targetW, targetH } = validateTargetSize(
+                            evt.position.w,
+                            evt.position.h,
+                            boxLayout
+                        )
+
+                        this.placeholder = utils.updateBoxPosition(this.placeholder, {
+                            w: targetW,
+                            h: targetH
+                        })
+                    }
+
+                    boxLayout = utils.updateBoxPosition(boxLayout, {
+                        w: this.placeholder.position.w,
+                        h: this.placeholder.position.h
+                    })
+
+                    let newLayout = [ boxLayout ]
+                    let initialLayout = utils.sortLayout(this.layout)
+                    initialLayout.forEach((boxPosition) => {
+                        if (boxPosition.id === boxLayout.id) {
+                            return
+                        }
+                        newLayout.push(utils.moveBoxToFreePlace(newLayout, boxPosition, this.bubbleUp, this.bubbleLeft))
+                    })
+
+                    if (this.bubbleUp) {
+                        newLayout = utils.layoutBubbleUp(newLayout)
+                    }
+                    if (this.bubbleLeft) {
+                        newLayout = utils.layoutBubbleLeft(newLayout)
+                    }
+                    this.updateLayout(newLayout)
                 })
             },
             createBoxLayout (...boxIds) {
@@ -506,7 +566,7 @@
                                 y: 0,
                                 ...this.defaultSize
                             }
-                        }, this.bubbleUp))
+                        }, this.bubbleUp, this.bubbleLeft))
                     })
                     this.updateLayout(newLayout)
                 }

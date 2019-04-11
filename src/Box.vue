@@ -95,6 +95,10 @@
                     }
                 }
                 return null
+            },
+
+            updateSize (id, position) {
+                this.$emit('updateSize', { id, position })
             }
         },
         mounted () {
@@ -109,7 +113,8 @@
             // moving
             this.$dragHandle = this.$el || this.$refs.dragHandle
             this.$dragHandle.addEventListener('mousedown', evt => {
-                if (!utils.matchesSelector(evt.target, this.dragSelector)) {
+                // 2 is mouse right key
+                if (evt.button === 2 || !utils.matchesSelector(evt.target, this.dragSelector)) {
                     return
                 }
 

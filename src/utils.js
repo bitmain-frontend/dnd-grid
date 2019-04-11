@@ -34,6 +34,17 @@ export const isFree = (layout, position) => {
     return true
 }
 
+export const bubbleLeft = (layout, boxLayout) => {
+    do {
+        boxLayout = updateBoxPosition(boxLayout, {
+            x: boxLayout.position.x - 1
+        })
+    } while (isFree(layout, boxLayout.position) && boxLayout.position.x >= 0)
+    return updateBoxPosition(boxLayout, {
+        x: boxLayout.position.x + 1
+    })
+}
+
 // moves the box to the upmost free position
 export const bubbleUp = (layout, boxLayout) => {
     do {
@@ -41,15 +52,18 @@ export const bubbleUp = (layout, boxLayout) => {
             y: boxLayout.position.y - 1
         })
     } while (isFree(layout, boxLayout.position) && boxLayout.position.y >= 0)
-    return updateBoxPosition(boxLayout, {
+    return updateBoxPosition(boxLayout, { // 默认向上向左冒泡
         y: boxLayout.position.y + 1
     })
 }
 
 // updates box position to a free place in a given layout
-export const moveBoxToFreePlace = (layout, boxLayout, doBubbleUp) => {
+export const moveBoxToFreePlace = (layout, boxLayout, doBubbleUp, doBubbleLeft) => {
     if (doBubbleUp) {
         boxLayout = bubbleUp(layout, boxLayout)
+    }
+    if (doBubbleLeft) {
+        boxLayout = bubbleLeft(layout, boxLayout)
     }
     while (!isFree(layout, boxLayout.position)) {
         boxLayout = updateBoxPosition(boxLayout, {
@@ -96,6 +110,15 @@ export const layoutBubbleUp = (layout) => {
     let newLayout = []
     layout.forEach(boxLayout => {
         newLayout.push(bubbleUp(newLayout, boxLayout))
+    })
+    return newLayout
+}
+
+export const layoutBubbleLeft = (layout) => {
+    layout = sortLayout(layout)
+    let newLayout = []
+    layout.forEach(boxLayout => {
+        newLayout.push(bubbleLeft(newLayout, boxLayout))
     })
     return newLayout
 }
@@ -149,11 +172,11 @@ export const layoutHasCollisions = (layout) => {
 }
 
 // fix layout with collisions
-export const fixLayout = (layout, doBubbleUp) => {
+export const fixLayout = (layout, doBubbleUp, doBubbleLeft) => {
     layout = sortLayout(layout)
     let fixedLayout = []
     layout.forEach(boxLayout => {
-        fixedLayout.push(moveBoxToFreePlace(fixedLayout, boxLayout, doBubbleUp))
+        fixedLayout.push(moveBoxToFreePlace(fixedLayout, boxLayout, doBubbleUp, doBubbleLeft))
     })
     return fixedLayout
 }

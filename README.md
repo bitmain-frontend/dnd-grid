@@ -1,6 +1,6 @@
 # dnd-grid
 
-> A vuejs grid with draggable and resizable boxes
+> A vuejs grid with draggable and resizable boxes, fork from [https://github.com/dattn/dnd-grid/] and add some new features
 
 [Demo page](https://dnd-grid.duton.lu/)
 
